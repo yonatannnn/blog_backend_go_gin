@@ -3,6 +3,9 @@ package usecase
 import (
 	"blog_api/domain"
 	"errors"
+	"log"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PostUsecase interface {
@@ -12,13 +15,12 @@ type PostUsecase interface {
 	UpdatePost(domain.Post) error
 	DeletePost(string) error
 	LikePost(string, string) error
+	UnlikePost(string, string) error
 }
-
 
 type postUsecase struct {
 	postRepo domain.PostRepository
 }
-
 
 func NewPostUsecase(pr domain.PostRepository) PostUsecase {
 	return &postUsecase{
@@ -26,44 +28,87 @@ func NewPostUsecase(pr domain.PostRepository) PostUsecase {
 	}
 }
 
-
-
 func (pu *postUsecase) CreatePost(post domain.Post) error {
-	if post.ID == "" {
-		return errors.New("Invalid Post ID")
-	}
+
+	
 	if post.Content == "" {
 		return errors.New("Invalid Content")
 	}
 	if post.Author.Username == "" {
 		return errors.New("Invalid Author ID")
 	}
-	return pu.postRepo.CreatePost(post)
+
+	objectID := primitive.NewObjectID()
+	post.ID = objectID
+
+	err := pu.postRepo.CreatePost(post)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (pu *postUsecase) FindPostById(id string) (domain.Post, error) {
-	
-	return domain.Post{}, nil
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+	post, er := pu.postRepo.FindPostById(objID)
+	if er != nil {
+		return domain.Post{}, er
+	}
+	return post, nil
 }
 
 func (pu *postUsecase) FindAllPost() ([]domain.Post, error) {
-	
-	return []domain.Post{}, nil
+	posts, err := pu.postRepo.FindAllPosts()
+	if err != nil {
+		return []domain.Post{}, err
+	}
+
+	return posts, nil
 }
 
 func (pu *postUsecase) UpdatePost(post domain.Post) error {
-	
+	err := pu.postRepo.UpdatePost(post)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (pu *postUsecase) DeletePost(id string) error {
-	
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = pu.postRepo.DeletePost(objID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (pu *postUsecase) LikePost(postID string, userID string) error {
-	// TODO: Implement LikePost method
+func (pu *postUsecase) LikePost(postID string, username string) error {
+	objID, err := primitive.ObjectIDFromHex(postID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var user domain.User
+	user.Username = username
+	err = pu.postRepo.LikePost(objID, user)
 	return nil
 }
 
-
+func (pu *postUsecase) UnlikePost(postID string, username string) error {
+	objID, err := primitive.ObjectIDFromHex(postID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var user domain.User
+	user.Username = username
+	err = pu.postRepo.UnlikePost(objID, user)
+	return nil
+}

@@ -4,12 +4,14 @@ import (
 	"blog_api/domain"
 	"blog_api/infrastructure"
 	"errors"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UserUsecase interface {
 	CreateUser(domain.User) error
 	Login(string, string) (domain.User, error, string)
-	FindUserById(string) (domain.User, error)
+	FindUserByUsername(string) (domain.User, error)
 	FindAllUser() ([]domain.User, error)
 	UpdateUser(domain.User) error
 	DeleteUser(string) error
@@ -32,14 +34,12 @@ func NewUserUsecase(ur domain.UserRepository , ps infrastructure.PasswordService
 
 func (u *userUsecase) CreateUser(user domain.User) error {
 	if user.Username == "" {
-		return errors.New("Invalid User ID")
-	}
-	if user.Username == "" {
-		return errors.New("Invalid Username")
+		return errors.New("Invalid UserName")
 	}
 	if user.Password == "" {
 		return errors.New("Invalid Password")
 	}
+
 
 	newPassword, err := u.passwordService.HashPassword(user.Password)
 	if err != nil {
@@ -47,8 +47,10 @@ func (u *userUsecase) CreateUser(user domain.User) error {
 	}
 	
 	user.Password = newPassword
-	
+	user.ID = primitive.NewObjectID()
+
 	err = u.userRepo.CreateUser(user)
+
 	if err != nil {
 		return errors.New("Failed to create user")
 	}
@@ -74,14 +76,24 @@ func (u *userUsecase) Login(username string , password string) (domain.User, err
 	return user, nil , token
 }
 
-func (u *userUsecase) FindUserById(id string) (domain.User, error) {
-	// TODO: Implement FindUserById logic
-	return domain.User{}, nil
+func (u *userUsecase) FindUserByUsername(username string) (domain.User, error) {
+	user , err := u.userRepo.FindByUsername(username)
+	if err != nil {
+		return domain.User{}, errors.New("User not found")
+	}
+	return user, nil
 }
 
 func (u *userUsecase) FindAllUser() ([]domain.User, error) {
-	// TODO: Implement FindAllUser logic
-	return []domain.User{}, nil
+	users , err := u.userRepo.FindAllUsers()
+	if err != nil {
+		return nil, errors.New("Failed to find users")
+	}
+	if len(users) > 0 {
+		return users, nil
+	}
+
+	return users , nil
 }
 
 func (u *userUsecase) UpdateUser(user domain.User) error {
@@ -90,7 +102,15 @@ func (u *userUsecase) UpdateUser(user domain.User) error {
 }
 
 func (u *userUsecase) DeleteUser(id string) error {
-	// TODO: Implement DeleteUser logic
+	
+	objId , err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("Invalid ID")
+	}
+	err = u.userRepo.DeleteUser(objId)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PostController interface {
@@ -15,6 +16,7 @@ type PostController interface {
 	FindPostById(c *gin.Context)
 	FindAllPosts(c *gin.Context)
 	LikePost(c *gin.Context)
+	UnlikePost(c *gin.Context)
 }
 
 type postController struct {
@@ -34,10 +36,24 @@ func (pc *postController) CreatePost(c *gin.Context) {
 		return
 	}
 
+	username := c.GetString("username")
+	user_id := c.GetString("user_id")
+	var user domain.User
+	user.Username = username
+	user.Role = c.GetString("role")
+	primtiveID , er := primitive.ObjectIDFromHex(user_id)
+	if er != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": er.Error()})
+		return
+	}
+	
+	user.ID  = primtiveID
+	post.Author = user
+	
 	err := pc.postUsecase.CreatePost(post)
 	
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create post"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -45,21 +61,68 @@ func (pc *postController) CreatePost(c *gin.Context) {
 }
 
 func (pc *postController) UpdatePost(c *gin.Context) {
-	// TODO: Implement UpdatePost method
+	var post domain.Post
+	if err := c.ShouldBindJSON(&post); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	
+	err := pc.postUsecase.UpdatePost(post)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Post updated successfully"})
+
 }
 
 func (pc *postController) DeletePost(c *gin.Context) {
-	// TODO: Implement DeletePost method
+	id := c.Param("id")
+	err := pc.postUsecase.DeletePost(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Post deleted successfully"})
 }
 
 func (pc *postController) FindPostById(c *gin.Context) {
-	// TODO: Implement FindPostById method
+	id := c.Param("id")
+	post, err := pc.postUsecase.FindPostById(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, post)
 }
 
 func (pc *postController) FindAllPosts(c *gin.Context) {
-	// TODO: Implement FindAllPosts method
+	posts , err := pc.postUsecase.FindAllPost()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, posts)
 }
 
 func (pc *postController) LikePost(c *gin.Context) {
-	// TODO: Implement LikePost method
+	postID := c.Param("post_id")
+	username := c.GetString("user_id")
+	err := pc.postUsecase.LikePost(postID, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Post liked successfully"})
+}
+
+func (pc *postController) UnlikePost(c *gin.Context) {
+	postID := c.Param("post_id")
+	username := c.GetString("user_id")
+	err := pc.postUsecase.UnlikePost(postID, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Post unliked successfully"})
 }
