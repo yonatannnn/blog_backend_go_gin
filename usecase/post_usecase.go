@@ -12,7 +12,7 @@ type PostUsecase interface {
 	CreatePost(domain.Post) error
 	FindPostById(string) (domain.Post, error)
 	FindAllPost() ([]domain.Post, error)
-	UpdatePost(domain.Post) error
+	UpdatePost(string , domain.Post) error
 	DeletePost(string) error
 	LikePost(string, string) error
 	UnlikePost(string, string) error
@@ -29,8 +29,9 @@ func NewPostUsecase(pr domain.PostRepository) PostUsecase {
 }
 
 func (pu *postUsecase) CreatePost(post domain.Post) error {
-
-	
+	if post.Title == "" {
+		return errors.New("Invalid Title")
+	}
 	if post.Content == "" {
 		return errors.New("Invalid Content")
 	}
@@ -70,7 +71,12 @@ func (pu *postUsecase) FindAllPost() ([]domain.Post, error) {
 	return posts, nil
 }
 
-func (pu *postUsecase) UpdatePost(post domain.Post) error {
+func (pu *postUsecase) UpdatePost(id string , post domain.Post) error {
+	objID , er :=  primitive.ObjectIDFromHex(id)
+	if er != nil {
+		return errors.New("invalid Id")
+	}
+	post.ID = objID
 	err := pu.postRepo.UpdatePost(post)
 	if err != nil {
 		return err

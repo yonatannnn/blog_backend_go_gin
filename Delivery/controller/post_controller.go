@@ -3,7 +3,9 @@ package controller
 import (
 	"blog_api/domain"
 	"blog_api/usecase"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -32,26 +34,35 @@ func NewPostController(pu usecase.PostUsecase) PostController {
 func (pc *postController) CreatePost(c *gin.Context) {
 	var post domain.Post
 	if err := c.ShouldBindJSON(&post); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
+	// Set the Author manually using data from the context
 	username := c.GetString("username")
-	user_id := c.GetString("user_id")
-	var user domain.User
-	user.Username = username
-	user.Role = c.GetString("role")
-	primtiveID , er := primitive.ObjectIDFromHex(user_id)
-	if er != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": er.Error()})
+	userID := c.GetString("user_id")
+	fmt.Println("username: ", username)
+	fmt.Println("userID: ", userID)
+	primitiveID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
 		return
 	}
-	
-	user.ID  = primtiveID
+
+	user := domain.User{
+		ID:       primitiveID,
+		Username: username,
+		Role:     c.GetString("role"),
+		Password: "",
+	}
 	post.Author = user
-	
-	err := pc.postUsecase.CreatePost(post)
-	
+
+	// Set the CreatedAt and UpdatedAt times
+	post.CreatedAt = time.Now()
+	post.UpdatedAt = time.Now()
+
+	// Call the use case to create the post
+	err = pc.postUsecase.CreatePost(post)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -61,13 +72,13 @@ func (pc *postController) CreatePost(c *gin.Context) {
 }
 
 func (pc *postController) UpdatePost(c *gin.Context) {
+	id := c.Param("id")
 	var post domain.Post
 	if err := c.ShouldBindJSON(&post); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
-	
-	err := pc.postUsecase.UpdatePost(post)
+	err := pc.postUsecase.UpdatePost(id, post)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -97,7 +108,7 @@ func (pc *postController) FindPostById(c *gin.Context) {
 }
 
 func (pc *postController) FindAllPosts(c *gin.Context) {
-	posts , err := pc.postUsecase.FindAllPost()
+	posts, err := pc.postUsecase.FindAllPost()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

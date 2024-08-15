@@ -15,10 +15,10 @@ type postRepository struct {
 	context            context.Context
 }
 
-func NewPostRepository(databaseCollection *mongo.Collection, context context.Context) domain.PostRepository {
+func NewPostRepository(databaseCollection *mongo.Collection) domain.PostRepository {
 	return &postRepository{
 		databaseCollection: databaseCollection,
-		context:            context,
+		context:            context.TODO(),
 	}
 }
 
